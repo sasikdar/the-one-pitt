@@ -65,17 +65,24 @@ public abstract class MessageRouter {
 	/** Receive return value for unspecified reason */
 	public static final int DENIED_UNSPECIFIED = -999;
 	
-	public static final int DENIED_DELIVERED = -4;
+	/** ADDED FOR TEST*/
+	public static final int DENIED_DELIVERED = -4; 
 	public static final int DENIED_ALREADY_IN_VR = -5;
 	public static final int DENIED_CHECKIN = -6;
 	
+	/** CHANGED: private List<MessageListener> mListeners; */
 	protected List<MessageListener> mListeners;
+	
+
 	/** The messages being transferred with msgID_hostName keys */
 	private HashMap<String, Message> incomingMessages;
 	/** The messages this router is carrying */
 	private HashMap<String, Message> messages; 
 	/** The messages this router has received as the final recipient */
+	
+	/** CHANGED: private HashMap<String, Message> deliveredMessages; **/
 	protected HashMap<String, Message> deliveredMessages;
+	
 	/** Host where this router belongs to */
 	private DTNHost host;
 	/** size of the buffer */
@@ -125,7 +132,7 @@ public abstract class MessageRouter {
 	 * @param host The host this router is in
 	 * @param mListeners The message listeners
 	 */
-	public void initialize(DTNHost host, List<MessageListener> mListeners) {
+	public void init(DTNHost host, List<MessageListener> mListeners) {
 		this.incomingMessages = new HashMap<String, Message>();
 		this.messages = new HashMap<String, Message>();
 		this.deliveredMessages = new HashMap<String, Message>();
@@ -252,7 +259,9 @@ public abstract class MessageRouter {
 	 * Returns the host this router is in
 	 * @return The host object
 	 */
-	protected DTNHost getHost() {
+	
+//	protected DTNHost getHost() { USED TO BE
+	public DTNHost getHost() {
 		return this.host;
 	}
 	
@@ -550,8 +559,7 @@ public abstract class MessageRouter {
 		RoutingInfo delivered = new RoutingInfo(this.deliveredMessages.size() +
 				" delivered message(s)");
 		
-		//RoutingInfo cons = new RoutingInfo(host.getConnections().size() +
-		RoutingInfo cons = new RoutingInfo(host.getConnectionCount() +
+		RoutingInfo cons = new RoutingInfo(host.getConnections().size() + 
 			" connection(s)");
 				
 		ri.addMoreInfo(incoming);
@@ -566,8 +574,7 @@ public abstract class MessageRouter {
 			delivered.addMoreInfo(new RoutingInfo(m + " path:" + m.getHops()));
 		}
 		
-		for(Connection c : host.getConnections()) {
-		//for (Connection c : host.getConnections()) {
+		for (Connection c : host.getConnections()) {
 			cons.addMoreInfo(new RoutingInfo(c));
 		}
 
@@ -616,7 +623,7 @@ public abstract class MessageRouter {
 	 * settings as this router but empty buffers and routing tables.
 	 * @return The replicate
 	 */
-	//public abstract MessageRouter replicate();
+	public abstract MessageRouter replicate();
 	
 	/**
 	 * Returns a String presentation of this router
@@ -627,6 +634,4 @@ public abstract class MessageRouter {
 			this.getHost().toString() + " with " + getNrofMessages() 
 			+ " messages";
 	}
-	
-	public abstract MessageRouter replicate();
 }

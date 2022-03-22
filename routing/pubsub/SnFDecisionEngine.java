@@ -259,4 +259,16 @@ public class SnFDecisionEngine implements RoutingDecisionEngine
 	{
 		return mySubscriptions.contains(pubname);
 	}
+
+	@Override
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost, DTNHost myHost) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 }

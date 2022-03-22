@@ -87,7 +87,7 @@ public class PubSubRouter extends ActiveRouter
 			Collection<Message> msgs = getMessageCollection();
 			for(Message m : msgs)
 			{
-				if(decider.shouldSendMessageToHost(m, otherNode))
+				if(decider.shouldSendMessageToHost(m, otherNode,this.getHost()))
 					outgoingMessages.add(new Tuple<Message,Connection>(m, con));
 			}
 		}
@@ -175,7 +175,7 @@ public class PubSubRouter extends ActiveRouter
 			//for(Connection c : getConnections())
 			{
 				DTNHost other = c.getOtherNode(getHost());
-				if(decider.shouldSendMessageToHost(aMessage, other))
+				if(decider.shouldSendMessageToHost(aMessage, other,this.getHost()))
 					outgoingMessages.add(new Tuple<Message, Connection>(aMessage, c));
 			}
 		}
@@ -198,7 +198,7 @@ public class PubSubRouter extends ActiveRouter
 		
 		removeMsgAndConFromOutgoingQueue(transferred, con);
 		
-		if(decider.shouldDeleteSentMessage(transferred, con.getOtherNode(getHost())))
+		if(decider.shouldDeleteSentMessage(transferred, con.getOtherNode(getHost()),this.getHost()))
 		{
 			System.out.println("Host:" + getHost().getAddress() + " deleting msg: " + 
 					transferred.getId());

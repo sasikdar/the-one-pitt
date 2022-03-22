@@ -43,6 +43,36 @@ public class DTNSim {
 	 * @param args Command line arguments
 	 */
 	public static void main(String[] args) {
+		
+			// TECD **********************************
+		ArrayList<Long> arl= new ArrayList<Long>();
+		/** 24 slots of 1 hour **/
+		arl.add((long)3600);  // 1
+		arl.add((long)7200);  // 2
+		arl.add((long)10800); // 3
+		arl.add((long)14400); // 4
+		arl.add((long)18000); // 5
+		arl.add((long)21600); // 6
+		arl.add((long)25200); // 7
+		arl.add((long)28800); // 8
+		arl.add((long)32400); // 9
+		arl.add((long)36000); // 10
+		arl.add((long)39600); // 11
+		arl.add((long)43200); // 12
+		arl.add((long)46800); // 13
+		arl.add((long)50400); // 14
+		arl.add((long)54000); // 15
+		arl.add((long)57600); // 16
+		arl.add((long)61200); // 17
+		arl.add((long)64800); // 18
+		arl.add((long)68400); // 19
+		arl.add((long)72000); // 20
+		arl.add((long)75600); // 21
+		arl.add((long)79200); // 22
+		arl.add((long)82800); // 23
+		arl.add((long)86400); // 24
+		SlotTimeCheck g = new SlotTimeCheck(arl);
+	// TECD **********************************
 		boolean batchMode = false;
 		int nrofRuns[] = {0,1};
 		String confFiles[];
@@ -134,6 +164,7 @@ public class DTNSim {
 			Settings.setRunIndex(guiIndex);
 			new DTNSimGUI().start();
 		}
+
 	}
 	
 	/**

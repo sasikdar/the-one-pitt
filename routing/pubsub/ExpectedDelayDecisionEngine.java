@@ -87,7 +87,7 @@ public class ExpectedDelayDecisionEngine implements RoutingDecisionEngine
 		return false;
 	}
 
-	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost)
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 		// TODO Auto-generated method stub
 		return false;
@@ -99,7 +99,7 @@ public class ExpectedDelayDecisionEngine implements RoutingDecisionEngine
 		return false;
 	}
 
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 		// TODO Auto-generated method stub
 		return false;

@@ -29,21 +29,21 @@ public class CCNProphetDecisionEngine implements RoutingDecisionEngine
 	protected double lastAgeUpdate; 
 	protected int 	 secondsInTimeUnit;
 	
-	public CCNProphetDecisionEngine(Settings s)
+	public CCNProphetDecisionEngine(Settings sh)
 	{
 		//Settings s = new Settings();
-		if(s.contains(BETA_SETTING))
-			beta = s.getDouble(BETA_SETTING);
+		if(sh.contains(BETA_SETTING))
+			beta = sh.getDouble(BETA_SETTING);
 		else
 			beta = DEFAULT_BETA;
 		
-		if(s.contains(P_INIT_SETTING))
-			pinit = s.getDouble(P_INIT_SETTING);
+		if(sh.contains(P_INIT_SETTING))
+			pinit = sh.getDouble(P_INIT_SETTING);
 		else
 			pinit = DEFAULT_P_INIT;
 		
-		if(s.contains(SECONDS_IN_UNIT_S))
-			secondsInTimeUnit = s.getInt(SECONDS_IN_UNIT_S);
+		if(sh.contains(SECONDS_IN_UNIT_S))
+			secondsInTimeUnit = sh.getInt(SECONDS_IN_UNIT_S);
 		else
 			secondsInTimeUnit = DEFAULT_UNIT;
 		
@@ -112,7 +112,7 @@ public class CCNProphetDecisionEngine implements RoutingDecisionEngine
 		return true;
 	}
 
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 		// TODO: add name-based
 		
@@ -121,7 +121,7 @@ public class CCNProphetDecisionEngine implements RoutingDecisionEngine
 		return de.getPredFor(m.getTo()) > this.getPredFor(m.getTo());
 	}
 
-	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost)
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 		return false;
 	}

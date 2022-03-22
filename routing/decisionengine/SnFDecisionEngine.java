@@ -155,7 +155,7 @@ public class SnFDecisionEngine implements RoutingDecisionEngine
 		return m.getTo() != thisHost;
 	}
 
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 		if(m.getTo() == otherHost) return true;
 		
@@ -187,5 +187,11 @@ public class SnFDecisionEngine implements RoutingDecisionEngine
 		" with other routers of same type";
 		
 		return (SnFDecisionEngine) ((DecisionEngineRouter)otherRouter).getDecisionEngine();
+	}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 }

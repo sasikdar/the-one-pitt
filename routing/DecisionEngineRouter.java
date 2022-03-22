@@ -1,87 +1,67 @@
+/**
+ * DecisionEngineRouter.java was adapted to cope with Dlife and DlifeComm.
+ * 
+ * Copyright 2010 by University of Pittsburgh
+ * Copyright 2012 SITI, Universidade Lusófona
+ * 
+ * Dlife and DlifeComm are free softwares: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * Dlife and DlifeComm are distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with Dlife and DlifeComm.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * 
+ */
+
 package routing;
 
 import java.util.*;
 
 import core.*;
 
-/**
- * This class overrides ActiveRouter in order to inject calls to a 
- * DecisionEngine object where needed add extract as much code from the update()
- * method as possible. 
- * 
- * <strong>Forwarding Logic:</strong> 
- * 
- * A DecisionEngineRouter maintains a List of Tuple<Message, Connection> in 
- * support of a call to ActiveRouter.tryMessagesForConnected() in 
- * DecisionEngineRouter.update(). Since update() is called so frequently, we'd 
- * like as little computation done in it as possible; hence the List that gets
- * updated when events happen. Four events cause the List to be updated: a new 
- * message from this host, a new received message, a connection goes up, or a 
- * connection goes down. On a new message (either from this host or received 
- * from a peer), the collection of open connections is examined to see if the
- * message should be forwarded along them. If so, a new Tuple is added to the
- * List. When a connection goes up, the collection of messages is examined to 
- * determine to determine if any should be sent to this new peer, adding a Tuple
- * to the list if so. When a connection goes down, any Tuple in the list
- * associated with that connection is removed from the List.
- * 
- * <strong>Decision Engines</strong>
- * 
- * Most (if not all) routing decision making is provided by a 
- * RoutingDecisionEngine object. The DecisionEngine Interface defines methods 
- * that enact computation and return decisions as follows:
- * 
- * <ul>
- *   <li>In createNewMessage(), a call to RoutingDecisionEngine.newMessage() is 
- * 	 made. A return value of true indicates that the message should be added to
- * 	 the message store for routing. A false value indicates the message should
- *   be discarded.
- *   </li>
- *   <li>changedConnection() indicates either a connection went up or down. The
- *   appropriate connectionUp() or connectionDown() method is called on the
- *   RoutingDecisionEngine object. Also, on connection up events, this first
- *   peer to call changedConnection() will also call
- *   RoutingDecisionEngine.doExchangeForNewConnection() so that the two 
- *   decision engine objects can simultaneously exchange information and update 
- *   their routing tables (without fear of this method being called a second
- *   time).
- *   </li>
- *   <li>Starting a Message transfer, a protocol first asks the neighboring peer
- *   if it's okay to send the Message. If the peer indicates that the Message is
- *   OLD or DELIVERED, call to RoutingDecisionEngine.shouldDeleteOldMessage() is
- *   made to determine if the Message should be removed from the message store.
- *   <em>Note: if tombstones are enabled or deleteDelivered is disabled, the 
- *   Message will be deleted and no call to this method will be made.</em>
- *   </li>
- *   <li>When a message is received (in messageTransferred), a call to 
- *   RoutingDecisionEngine.isFinalDest() to determine if the receiving (this) 
- *   host is an intended recipient of the Message. Next, a call to 
- *   RoutingDecisionEngine.shouldSaveReceivedMessage() is made to determine if
- *   the new message should be stored and attempts to forward it on should be
- *   made. If so, the set of Connections is examined for transfer opportunities
- *   as described above.
- *   </li>
- *   <li> When a message is sent (in transferDone()), a call to 
- *   RoutingDecisionEngine.shouldDeleteSentMessage() is made to ask if the 
- *   departed Message now residing on a peer should be removed from the message
- *   store.
- *   </li>
- * </ul>
- * 
- * <strong>Tombstones</strong>
- * 
- * The ONE has the the deleteDelivered option that lets a host delete a message
- * if it comes in contact with the message's destination. More aggressive 
- * approach lets a host remember that a given message was already delivered by
- * storing the message ID in a list of delivered messages (which is called the
- * tombstone list here). Whenever any node tries to send a message to a host 
- * that has a tombstone for the message, the sending node receives the 
- * tombstone.
- * 
- * @author PJ Dillon, University of Pittsburgh
- */
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.io.FileWriter;
+import java.io.IOException;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+
+import routing.community.CommunityDetection;
+
+import core.Connection;
+import core.DTNHost;
+import core.Message;
+import core.Settings;
+import core.SimClock;
+import core.SlotTimeCheck;
+import core.Tuple;
+
 public class DecisionEngineRouter extends ActiveRouter
 {
+	private ArrayList<Map<DTNHost,Double>> averageDurations; // every slot of averageDuration corresponds to a specific slot of a day containing the average duration for all the nodes that did set up a connection with THIS node  
+	private Map<DTNHost,Double> startconnectiontime; // Map to save the starting times a connection of the several nodes ---- "-1" if there is no connection at the moment 
+	private Map<DTNHost,Double> deltaT;    //Map to save the connectiontimes of the nodes for the current slot
+	private Map<DTNHost,Double> deltaTforImportance;
+	private Map<DTNHost,Double> importancemap; //Stores the importance of encountered nodes
+	private double importance;
+	public static Map<DTNHost, Double> weights;
+	public static Map<DTNHost, Map<DTNHost, Double>> weightsCopy= new HashMap<DTNHost, Map<DTNHost, Double>>();
+	public static Map<DTNHost, Double> importCopy= new HashMap<DTNHost, Double>();
+	public static DecisionEngineRouter host;
+	protected CommunityDetection community;
+	int predCount=0;
+	
 	public static final String PUBSUB_NS = "DecisionEngineRouter";
 	public static final String ENGINE_SETTING = "decisionEngine";
 	public static final String TOMBSTONE_SETTING = "tombstones";
@@ -93,11 +73,18 @@ public class DecisionEngineRouter extends ActiveRouter
 	
 	protected Set<String> tombstones;
 	
+	/** how often TTL check (discarding old messages) is performed */
+	 public static int TTL_CHECK_INTERVAL = 60;
+	 /** sim time when the last TTL check was done */
+	 private double lastTtlCheck;
+	
 	/** 
 	 * Used to save state machine when new connections are made. See comment in
 	 * changedConnection() 
 	 */
 	protected Map<Connection, Integer> conStates;
+	
+	
 	
 	public DecisionEngineRouter(Settings s)
 	{
@@ -118,6 +105,19 @@ public class DecisionEngineRouter extends ActiveRouter
 		if(tombstoning)
 			tombstones = new HashSet<String>(10);
 		conStates = new HashMap<Connection, Integer>(4);
+		
+		initWeights();
+		
+		averageDurations=new ArrayList<Map<DTNHost,Double>>(SlotTimeCheck.getnumberofslots());
+		for(int i=0;i<SlotTimeCheck.getnumberofslots();i++){
+			Map<DTNHost,Double> map=new HashMap<DTNHost,Double>();
+			averageDurations.add(map);
+		}
+
+		startconnectiontime=new HashMap<DTNHost,Double>();
+		deltaT=new HashMap<DTNHost,Double>();
+		importancemap=new HashMap<DTNHost,Double>();
+		importance=0;
 	}
 
 	public DecisionEngineRouter(DecisionEngineRouter r)
@@ -130,106 +130,44 @@ public class DecisionEngineRouter extends ActiveRouter
 		if(this.tombstoning)
 			tombstones = new HashSet<String>(10);
 		conStates = new HashMap<Connection, Integer>(4);
+		
+		initWeights();
+
+		averageDurations=new ArrayList<Map<DTNHost,Double>>(SlotTimeCheck.getnumberofslots());
+		for(int i=0;i<SlotTimeCheck.getnumberofslots();i++){
+			Map<DTNHost,Double> map=new HashMap<DTNHost,Double>();
+			averageDurations.add(map);
+		}
+		startconnectiontime=new HashMap<DTNHost,Double>();
+		deltaT=new HashMap<DTNHost,Double>();
+		importancemap=new HashMap<DTNHost,Double>();
+		importance=0;
 	}
 
-	//@Override
+	@Override
 	public MessageRouter replicate()
 	{
 		return new DecisionEngineRouter(this);
 	}
 
 	@Override
-	public boolean createNewMessage(Message m)
-	{
-		if(decider.newMessage(m))
-		{
-			if(m.getId().equals("M14"))
-				System.out.println("Host: " + getHost() + "Creating M14");
+	 public boolean createNewMessage(Message m){
+		if(decider.newMessage(m)){
 			makeRoomForNewMessage(m.getSize());
-            m.setTtl(this.msgTtl);
-			addToMessages(m, true);
-			
+			m.setTtl(this.msgTtl);
+			addToMessages(m, true); 
 			findConnectionsForNewMessage(m, getHost());
 			return true;
 		}
 		return false;
-	}
-	
-	
-	
-	@Override
-	public void connectionUp(Connection con)
-	{
-		DTNHost myHost = getHost();
-		DTNHost otherNode = con.getOtherNode(myHost);
-		DecisionEngineRouter otherRouter = (DecisionEngineRouter)otherNode.getRouter();
-		
-		decider.connectionUp(myHost, otherNode);
-		
-		/*
-		 * This part is a little confusing because there's a problem we have to
-		 * avoid. When a connection comes up, we're assuming here that the two 
-		 * hosts who are now connected will exchange some routing information and
-		 * update their own based on what the get from the peer. So host A updates
-		 * its routing table with info from host B, and vice versa. In the real
-		 * world, A would send its *old* routing information to B and compute new
-		 * routing information later after receiving B's *old* routing information.
-		 * In ONE, changedConnection() is called twice, once for each host A and
-		 * B, in a serial fashion. If it's called for A first, A uses B's old info
-		 * to compute its new info, but B later uses A's *new* info to compute its
-		 * new info.... and this can lead to some nasty problems. 
-		 * 
-		 * To combat this, whichever host calls changedConnection() first calls
-		 * doExchange() once. doExchange() interacts with the DecisionEngine to
-		 * initiate the exchange of information, and it's assumed that this code
-		 * will update the information on both peers simultaneously using the old
-		 * information from both peers.
-		 */
-		if(shouldNotifyPeer(con))
-		{
-			this.doExchange(con, otherNode);
-			otherRouter.didExchange(con);
-		}
-		
-		/*
-		 * Once we have new information computed for the peer, we figure out if
-		 * there are any messages that should get sent to this peer.
-		 */
-		Collection<Message> msgs = getMessageCollection();
-		for(Message m : msgs)
-		{
-			if(decider.shouldSendMessageToHost(m, otherNode))
-				outgoingMessages.add(new Tuple<Message,Connection>(m, con));
-		}
-	}
-	
-	
+	 }
 
-	@Override
-	public void connectionDown(Connection con)
-	{
-		DTNHost myHost = getHost();
-		DTNHost otherNode = con.getOtherNode(myHost);
-		//DecisionEngineRouter otherRouter = (DecisionEngineRouter)otherNode.getRouter();
-		
-		decider.connectionDown(myHost, otherNode);
-		
-		conStates.remove(con);
-		
-		/*
-		 * If we  were trying to send message to this peer, we need to remove them
-		 * from the outgoing List.
-		 */
-		for(Iterator<Tuple<Message,Connection>> i = outgoingMessages.iterator(); 
-				i.hasNext();)
-		{
-			Tuple<Message, Connection> t = i.next();
-			if(t.getValue() == con)
-				i.remove();
-		}
+	public void initWeights() {
+		this.weights = new HashMap<DTNHost, Double>();
 	}
 
-	/*@Override
+	
+	@Override
 	public void changedConnection(Connection con)
 	{
 		DTNHost myHost = getHost();
@@ -237,27 +175,11 @@ public class DecisionEngineRouter extends ActiveRouter
 		DecisionEngineRouter otherRouter = (DecisionEngineRouter)otherNode.getRouter();
 		if(con.isUp())
 		{
+			updatestartconnectiontime(otherNode);   
+		    updateImportancemap(otherNode);
+
 			decider.connectionUp(myHost, otherNode);
 			
-			/*
-			 * This part is a little confusing because there's a problem we have to
-			 * avoid. When a connection comes up, we're assuming here that the two 
-			 * hosts who are now connected will exchange some routing information and
-			 * update their own based on what the get from the peer. So host A updates
-			 * its routing table with info from host B, and vice versa. In the real
-			 * world, A would send its *old* routing information to B and compute new
-			 * routing information later after receiving B's *old* routing information.
-			 * In ONE, changedConnection() is called twice, once for each host A and
-			 * B, in a serial fashion. If it's called for A first, A uses B's old info
-			 * to compute its new info, but B later uses A's *new* info to compute its
-			 * new info.... and this can lead to some nasty problems. 
-			 * 
-			 * To combat this, whichever host calls changedConnection() first calls
-			 * doExchange() once. doExchange() interacts with the DecisionEngine to
-			 * initiate the exchange of information, and it's assumed that this code
-			 * will update the information on both peers simultaneously using the old
-			 * information from both peers.
-			 *
 			if(shouldNotifyPeer(con))
 			{
 				this.doExchange(con, otherNode);
@@ -267,16 +189,20 @@ public class DecisionEngineRouter extends ActiveRouter
 			/*
 			 * Once we have new information computed for the peer, we figure out if
 			 * there are any messages that should get sent to this peer.
-			 *
+			 */
 			Collection<Message> msgs = getMessageCollection();
 			for(Message m : msgs)
 			{
-				if(decider.shouldSendMessageToHost(m, otherNode))
+				if(decider.shouldSendMessageToHost(m, otherNode, myHost))
 					outgoingMessages.add(new Tuple<Message,Connection>(m, con));
 			}
 		}
-		else
+		else 
 		{
+
+			updatedeltaT(otherNode);
+			setstarttimeoff(otherNode);
+
 			decider.connectionDown(myHost, otherNode);
 			
 			conStates.remove(con);
@@ -284,7 +210,7 @@ public class DecisionEngineRouter extends ActiveRouter
 			/*
 			 * If we  were trying to send message to this peer, we need to remove them
 			 * from the outgoing List.
-			 *
+			 */
 			for(Iterator<Tuple<Message,Connection>> i = outgoingMessages.iterator(); 
 					i.hasNext();)
 			{
@@ -293,7 +219,166 @@ public class DecisionEngineRouter extends ActiveRouter
 					i.remove();
 			}
 		}
-	}*/
+	}
+	
+	private void updatestartconnectiontime(DTNHost host) {
+		if(startconnectiontime.get(host)!=null){
+			if(startconnectiontime.get(host)>=0){      //  method to check if everything runs all right --- TODO should be removed afterwards
+				
+			}
+			else{
+				startconnectiontime.put(host, SimClock.getTime());
+			}
+		}
+		else{
+		startconnectiontime.put(host, SimClock.getTime());
+		}
+// TODO erase later on:		weights.put(host, newValue);
+	}
+	private void updateImportancemap(DTNHost host){
+		double importa=((DecisionEngineRouter)host.getRouter()).getImportance();
+	    importancemap.put(host, importa);
+	}
+	
+	
+	private void updatedeltaT(DTNHost host){
+		if(deltaT.get(host)!=null){
+			deltaT.put(host, deltaT.get(host)+(SimClock.getTime()-startconnectiontime.get(host)));
+		}
+		else{
+			if(startconnectiontime.get(host)==null){
+//				System.out.println("porque");
+			}
+			else{
+			deltaT.put(host,SimClock.getTime()-startconnectiontime.get(host));
+			}
+		}
+		
+	}
+	
+	private void setstarttimeoff(DTNHost host){
+		startconnectiontime.put(host,-1.0);
+		
+		
+	}
+	public void calcdeltaTandAD(){
+		Set<DTNHost> hostset= startconnectiontime.keySet();
+		Iterator<DTNHost> hostIterator=hostset.iterator();
+		Map<DTNHost,Double> tempList = new HashMap<DTNHost,Double>();
+		while(hostIterator.hasNext()){             //TODO still have to check how the iterator reacts to changes in the Map 
+			DTNHost currenthost = hostIterator.next();
+			if(startconnectiontime.get(currenthost)>=0){
+				updatedeltaT(currenthost);
+				tempList.put(currenthost,SimClock.getTime()); //set the starttime on the beginning of the new slot
+				
+			}
+		}  //at this point the startconnectiontime map is ready for the next slot: -times of existing connections set to the next slot  -others deleted
+		startconnectiontime=tempList;
+		updateAverageDuration();
+		updateWeights();
+		updateImportance();
+		long currentday=SlotTimeCheck.getDay();
+		int currentslot = SlotTimeCheck.getcurrentslot();
+		weightsCopy.put(this.getHost(),weights);
+	}
+	
+	
+	private void updateAverageDuration(){
+		long currentday=SlotTimeCheck.getDay();
+		int currentslot = SlotTimeCheck.getcurrentslot();
+		Map<DTNHost,Double> currentAverageDurationSlot=averageDurations.get(currentslot);
+		Set hostsinDelta = deltaT.keySet();
+		Iterator<DTNHost> deltaTHostIterator= hostsinDelta.iterator();
+		while(deltaTHostIterator.hasNext()){
+			DTNHost currenthost= deltaTHostIterator.next();
+			double oldAD=0;
+			if(currentAverageDurationSlot.get(currenthost)==null){
+				oldAD=0;
+			}
+			else{
+				oldAD=currentAverageDurationSlot.get(currenthost);
+			}
+			double newAD = (deltaT.get(currenthost)+(currentday-1)*oldAD);
+			currentAverageDurationSlot.put(currenthost,newAD);
+
+			
+		}
+		Set<DTNHost> s = currentAverageDurationSlot.keySet();
+		Iterator<DTNHost> iter=s.iterator();
+		double newvalue=0.0;
+		while(iter.hasNext()){
+			DTNHost dtnhost = iter.next();
+			if(!hostsinDelta.contains(dtnhost)){
+				newvalue= (currentday-1)*currentAverageDurationSlot.get(dtnhost)/currentday;
+			}
+			else newvalue= currentAverageDurationSlot.get(dtnhost)/currentday;
+			currentAverageDurationSlot.put(dtnhost,newvalue);
+		}
+		deltaTforImportance=deltaT;
+		deltaT=new HashMap<DTNHost,Double>();
+		
+	}
+
+	private void updateWeights(){
+		Map<DTNHost,Double>nextweight = new HashMap<DTNHost,Double>();
+		int numberofslots = SlotTimeCheck.getnumberofslots();
+		double denominator = SlotTimeCheck.getnumberofslots();
+		int slotindex= SlotTimeCheck.getcurrentslot();
+		for(int i=numberofslots;i>0;i--){
+			if(averageDurations.get(slotindex)!=null){
+				Map<DTNHost,Double> currentad=averageDurations.get(slotindex);
+				Set<DTNHost> hosts= currentad.keySet();
+				Iterator<DTNHost> hostIterator=hosts.iterator();
+				while(hostIterator.hasNext()){
+					DTNHost currentHost= hostIterator.next();
+					double currAverageduration = currentad.get(currentHost);
+					if(nextweight.get(currentHost)==null){
+						nextweight.put(currentHost, 0.0);
+					}
+				nextweight.put(currentHost, nextweight.get(currentHost)+((SlotTimeCheck.getnumberofslots())/(denominator))*currAverageduration);
+				}
+				denominator++;
+				slotindex=(slotindex+1);
+				if(slotindex==24){
+					slotindex=0;
+					}
+			}
+		
+		}
+		this.weights=nextweight;
+		
+	}
+	
+	private void updateImportance(){
+		int nrofneighbours=deltaTforImportance.size();
+		double sumofweights=0;
+		Set<DTNHost>set =deltaTforImportance.keySet();
+		Iterator<DTNHost> it= set.iterator();
+		while(it.hasNext()){
+			DTNHost ho=it.next();
+			sumofweights=sumofweights+weights.get(ho);
+			
+		}
+		Set<DTNHost> deltahosts = deltaTforImportance.keySet();
+		Iterator<DTNHost> iter= deltahosts.iterator();
+		double newimportance=0;
+		
+		while(iter.hasNext()){
+			DTNHost host=iter.next();
+			newimportance = newimportance+(weights.get(host)*importancemap.get(host))/(nrofneighbours);
+		}
+		this.importance=0.2+0.8*newimportance;
+		importCopy.put(this.getHost(), this.importance);
+	}
+
+	public double getImportance(){
+		return importance;
+	}
+	
+	public Map<DTNHost, Double> getWeights() {
+
+			return this.weights;
+		}
 	
 	protected void doExchange(Connection con, DTNHost otherHost)
 	{
@@ -333,8 +418,6 @@ public class DecisionEngineRouter extends ActiveRouter
 		else if (deleteDelivered && (retVal == DENIED_OLD || retVal == DENIED_DELIVERED) && 
 				decider.shouldDeleteOldMessage(m, con.getOtherNode(getHost()))) {
 			/* final recipient has already received the msg -> delete it */
-			if(m.getId().equals("M14"))
-				System.out.println("Host: " + getHost() + " told to delete M14");
 			this.deleteMessage(m.getId(), false);
 		}
 		
@@ -342,13 +425,17 @@ public class DecisionEngineRouter extends ActiveRouter
 	}
 
 	@Override
-	public int receiveMessage(Message m, DTNHost from)
-	{
+	 public int receiveMessage(Message m, DTNHost from){
+		int recvCheck = checkReceiving(m); 
+		if (recvCheck != RCV_OK) {
+			return recvCheck;
+		}
 		if(isDeliveredMessage(m) || (tombstoning && tombstones.contains(m.getId())))
-			return DENIED_DELIVERED;
-			
-		return super.receiveMessage(m, from);
-	}
+			return DENIED_DELIVERED; 
+		
+	 return super.receiveMessage(m, from);
+	 }
+
 
 	@Override
 	public Message messageTransferred(String id, DTNHost from)
@@ -416,45 +503,55 @@ public class DecisionEngineRouter extends ActiveRouter
 			}
 		}
 		
-		if(decider.shouldDeleteSentMessage(transferred, con.getOtherNode(getHost())))
+		if(decider.shouldDeleteSentMessage(transferred, con.getOtherNode(getHost()), getHost()))
 		{
-			if(transferred.getId().equals("M14"))
-				System.out.println("Host: " + getHost() + " deleting M14 after transfer");
 			this.deleteMessage(transferred.getId(), false);
 			
-			for(Iterator<Tuple<Message, Connection>> i = outgoingMessages.iterator(); 
-			i.hasNext();)
-			{
-				Tuple<Message, Connection> t = i.next();
-				if(t.getKey().getId().equals(transferred.getId()))
-				{
-					i.remove();
-				}
-			}
+			
 		}
 	}
 
 	@Override
-	public void update()
-	{
+	public void update(){
 		super.update();
+
+		/* time to do a TTL check and drop old messages? Only if not sending */
+		if (SimClock.getTime() - lastTtlCheck >= TTL_CHECK_INTERVAL && 
+				sendingConnections.size() == 0) {
+			dropExpiredMessages();
+			lastTtlCheck = SimClock.getTime();
+		}
+
 		if (!canStartTransfer() || isTransferring()) {
 			return; // nothing to transfer or is currently transferring 
+		} 
+
+		tryMessagesForConnected(outgoingMessages); 
+
+		for(Iterator<Tuple<Message, Connection>> i = outgoingMessages.iterator(); i.hasNext();){
+			Tuple<Message, Connection> t = i.next();
+			if(!this.hasMessage(t.getKey().getId())){
+				i.remove();
+			}
 		}
-		
-		tryMessagesForConnected(outgoingMessages);
+	 }
+	
+	@Override
+	public void deleteMessage(String id, boolean drop)
+	{
+		super.deleteMessage(id, drop);
 		
 		for(Iterator<Tuple<Message, Connection>> i = outgoingMessages.iterator(); 
-			i.hasNext();)
+		i.hasNext();)
 		{
 			Tuple<Message, Connection> t = i.next();
-			if(!this.hasMessage(t.getKey().getId()))
+			if(t.getKey().getId().equals(id))
 			{
 				i.remove();
 			}
 		}
 	}
-	
+
 	public RoutingDecisionEngine getDecisionEngine()
 	{
 		return this.decider;
@@ -468,14 +565,11 @@ public class DecisionEngineRouter extends ActiveRouter
 	
 	protected void findConnectionsForNewMessage(Message m, DTNHost from)
 	{
-		for(Connection c : getHost()) 
-		//for(Connection c : getConnections())
+		for(Connection c : from.getConnections())
 		{
 			DTNHost other = c.getOtherNode(getHost());
-			if(other != from && decider.shouldSendMessageToHost(m, other))
+			if(other != from && decider.shouldSendMessageToHost(m, other, getHost()))
 			{
-				if(m.getId().equals("M14"))
-					System.out.println("Adding attempt for M14 from: " + getHost() + " to: " + other);
 				outgoingMessages.add(new Tuple<Message, Connection>(m, c));
 			}
 		}

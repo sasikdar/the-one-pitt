@@ -112,7 +112,7 @@ public class ProphetDecisionEngine implements RoutingDecisionEngine
 		return m.getTo() != thisHost;
 	}
 
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 		if(m.getTo() == otherHost) return true;
 		
@@ -172,5 +172,11 @@ public class ProphetDecisionEngine implements RoutingDecisionEngine
 		else {
 			return 0;
 		}
+	}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 }

@@ -203,7 +203,7 @@ public class SIMPLECommunityDetection implements RoutingDecisionEngine, Communit
 		return m.getTo() != thisHost;
 	}
 
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 //		if(m.getTo() == otherHost) return true;
 		
@@ -244,4 +244,10 @@ public class SIMPLECommunityDetection implements RoutingDecisionEngine, Communit
 
 	public Set<DTNHost> getFamiliars() {return this.familiarSet;}
 	public Set<DTNHost> getLocalCommunity() {return this.localCommunity;}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 }

@@ -118,7 +118,7 @@ public class DTNHost implements Comparable<DTNHost>, Iterable<Connection> {
 	 * @param router The router to set
 	 */
 	private void setRouter(MessageRouter router) {
-		router.initialize(this, msgListeners);
+		router.init(this, msgListeners);
 		this.router = router;
 	}
 

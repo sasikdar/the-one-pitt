@@ -59,9 +59,10 @@ public class SimClock {
 	 * @param time the time to set
 	 */
 	public void setTime(double time) {
-		clockTime = time;
-	}
-	
+	clockTime = time;
+	SlotTimeCheck.update(time); // TECD: Everytime the simulation time changes the update-method of SlotTimeCheck is called to check if a end of a Slot is already reached.   
+}
+
 	/**
 	 * Returns the current simulation time in a string
 	 * @return the current simulation time in a string 
@@ -73,7 +74,10 @@ public class SimClock {
 	/**
 	 * Resets the static fields of the class
 	 */
-	public static void reset() {
-		clockTime = 0;
-	}
+public static void reset() {
+	clockTime = 0;
+	SlotTimeCheck.currentday=1; // Restart day count in case of running multiple runs 
+}
+
+
 }

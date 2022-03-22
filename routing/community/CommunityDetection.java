@@ -18,7 +18,7 @@ import core.*;
  * a member of the community or not.</p>
  * 
  * <p> These algorithms are needed by social-based routing protocols, such as 
- * {@link routing.community.DistributedBubbleRap} and 
+ * {@link routing.community.dlife_shouldDelete} and 
  * {@link routing.community.LABELDecisionEngine} to determine appropriate 
  * forwarding paths based on community membership. </p>
  * 

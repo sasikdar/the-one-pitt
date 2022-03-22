@@ -168,7 +168,7 @@ public class DistributedBubbleRap
 		return m.getTo() != thisHost;
 	}
 
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost, DTNHost thisHost)
 	{
 		if(m.getTo() == otherHost) return true; // trivial to deliver to final dest
 		
@@ -252,4 +252,10 @@ public class DistributedBubbleRap
 	}
 
 	public Set<DTNHost> getLocalCommunity() {return this.community.getLocalCommunity();}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 }

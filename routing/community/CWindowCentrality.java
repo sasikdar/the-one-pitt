@@ -75,7 +75,7 @@ public class CWindowCentrality implements Centrality
 	/** Width of each time interval in which to count the node's degree */
 	protected static int CENTRALITY_TIME_WINDOW = 21600; // 6 hours
 	/** Number of time intervals to average the node's degree over */
-	protected static int EPOCH_COUNT = 5;
+	protected static int EPOCH_COUNT = 48; // CHANGED FROM 5;
 	
 	/** Saved global centrality from last computation */
 	protected double globalCentrality;
@@ -125,6 +125,7 @@ public class CWindowCentrality implements Centrality
 		 * For each node, loop through connection history until we crossed all
 		 * the epochs we need to cover
 		 */
+		int epochControl=0;
 		for(Map.Entry<DTNHost, List<Duration>> entry : connHistory.entrySet())
 		{
 			DTNHost h = entry.getKey();
@@ -133,28 +134,54 @@ public class CWindowCentrality implements Centrality
 				int timePassed = (int)(timeNow - d.end);
 				
 				// if we reached the end of the last epoch, we're done with this node
-				if(timePassed > CENTRALITY_TIME_WINDOW * EPOCH_COUNT)
+//				System.out.println("EPOCH_COUNT "+EPOCH_COUNT);
+//				System.out.println("time now: "+timeNow);
+//				System.out.println("timePassed: "+timePassed);
+				if(timePassed > CENTRALITY_TIME_WINDOW * EPOCH_COUNT)//{
+					//System.out.println("break\n");
 					break;
-				
+			//	}
 				// compute the epoch this contact belongs to
 				epoch = timePassed / CENTRALITY_TIME_WINDOW;
+				if(epoch>epochControl)
+					epochControl=epoch;
+//				System.out.println("epoch: "+epoch);
 				
 				// Only consider each node once per epoch
 				Set<DTNHost> nodesAlreadyCounted = nodesCountedInEpoch.get(epoch);
+//				System.out.println("nodesAlreadyCounted: "+nodesAlreadyCounted);
+//				System.out.println("h: "+h);
+//				if(nodesAlreadyCounted!=null)
+//					System.out.println("nodesAlreadyCounted.contains(h): "+nodesAlreadyCounted.contains(h));
+//				else
+//					System.out.println("nodesAlreadyCounted.contains(h): NULL");
+//				if(nodesAlreadyCounted!=null && nodesAlreadyCounted.contains(h)){ 
 				if(nodesAlreadyCounted.contains(h))
+//				{	
+//					System.out.println("continue\n");
 					continue;
-				
+//				}
 				// increment the degree for the given epoch
+//				System.out.println("centralities["+epoch+"]: " + centralities[epoch] + ", size: " + centralities.length);
+//				System.out.println("epoch: "+epoch);
 				centralities[epoch]++;
 				nodesAlreadyCounted.add(h);
+//				System.out.println( "Add "+h+ " to nodesAlreadyCounted:"+nodesAlreadyCounted +"\n");
 			}
 		}
-		
+//		System.out.println("SAINDO PRIMEIRO FOR");
+
 		// compute and return average node degree
-		int sum = 0;
-		for(int i = 0; i < EPOCH_COUNT; i++) 
+		int control = 0, sum = 0;
+		for(int i = 0; i < epochControl+1; i++){ // CHANGE FROM for(int i = 0; i < EPOCH_COUNT; i++){ 
+//			System.out.println("centralities["+i+"]: "+centralities[i]);
 			sum += centralities[i];
-		this.globalCentrality = ((double)sum) / EPOCH_COUNT;
+			control++;
+		}
+//		System.out.println("epochControl: "+ epochControl);
+//		System.out.println("control: "+ control);
+		this.globalCentrality = ((double)sum) / control; // CHANGED FROM this.globalCentrality = ((double)sum) / EPOCH_COUNT;
+//		System.out.println(this+".globalCentrality: "+this.globalCentrality+"\n");
 		
 		this.lastGlobalComputationTime = SimClock.getIntTime();
 		
@@ -172,6 +199,8 @@ public class CWindowCentrality implements Centrality
 		int epoch, timeNow = SimClock.getIntTime();
 		Map<Integer, Set<DTNHost>> nodesCountedInEpoch = 
 			new HashMap<Integer, Set<DTNHost>>();
+		
+		int epochControl=0;
 		
 		for(int i = 0; i < EPOCH_COUNT; i++)
 			nodesCountedInEpoch.put(i, new HashSet<DTNHost>());
@@ -201,6 +230,8 @@ public class CWindowCentrality implements Centrality
 				
 				// compute the epoch this contact belongs to
 				epoch = timePassed / CENTRALITY_TIME_WINDOW;
+				if(epoch>epochControl)
+					epochControl=epoch;
 				
 				// Only consider each node once per epoch
 				Set<DTNHost> nodesAlreadyCounted = nodesCountedInEpoch.get(epoch);
@@ -208,16 +239,24 @@ public class CWindowCentrality implements Centrality
 					continue;
 				
 				// increment the degree for the given epoch
+//				System.out.println("epoch: "+epoch);
 				centralities[epoch]++;
 				nodesAlreadyCounted.add(h);
 			}
 		}
-		
+//		System.out.println("SAINDO PRIMEIRO FOR");
 		// compute and return average node degree
-		int sum = 0;
-		for(int i = 0; i < EPOCH_COUNT; i++) 
+		int control = 0, sum = 0;
+		for(int i = 0; i < epochControl+1; i++){ 
+//			System.out.println("centralities["+i+"]: "+centralities[i]);
 			sum += centralities[i];
-		this.localCentrality = ((double)sum) / EPOCH_COUNT; 
+			control++;
+		}
+//		System.out.println("epochControl: "+ epochControl);
+//		System.out.println("control: "+ control);
+		
+		this.localCentrality = ((double)sum) / control; 
+//		System.out.println(this+".localCentrality: "+this.localCentrality+"\n");
 		
 		this.lastLocalComputationTime = SimClock.getIntTime();
 		

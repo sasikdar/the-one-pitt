@@ -73,8 +73,14 @@ public class MEEDDecisionEngine implements RoutingDecisionEngine
 		return false;
 	}
 
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
 		// TODO Auto-generated method stub
 		return false;
 	}

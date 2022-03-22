@@ -235,6 +235,18 @@ public class SnFDecisionEngine implements RoutingDecisionEngine
 		else
 			return 0.0;
 	}
+
+	@Override
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost, DTNHost myHost) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 	
 	/*private boolean isSubscriber(ContentFilter f)
 	{

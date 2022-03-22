@@ -68,8 +68,8 @@ public abstract class ActiveRouter extends MessageRouter {
 	}
 	
 	@Override
-	public void initialize(DTNHost host, List<MessageListener> mListeners) {
-		super.initialize(host, mListeners);
+	public void init(DTNHost host, List<MessageListener> mListeners) {
+		super.init(host, mListeners);
 		this.sendingConnections = new ArrayList<Connection>(1);
 		this.lastTtlCheck = 0;
 	}

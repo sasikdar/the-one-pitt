@@ -1,3 +1,25 @@
+/**
+ * RoutingDecisionRouter.java was adapted to cope with Dlife and DlifeComm.
+ * 
+ * Copyright 2010 by University of Pittsburgh
+ * Copyright 2012 SITI, Universidade Lusófona
+ * 
+ * Dlife and DlifeComm are free softwares: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * Dlife and DlifeComm are distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with Dlife and DlifeComm.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * 
+ */
+
 package routing;
 
 import core.*;
@@ -84,9 +106,10 @@ public interface RoutingDecisionEngine
 	 * 
 	 * @param m Message to possibly sent
 	 * @param otherHost peer to potentially send the message to.
+	 * @param myHost 
 	 * @return true if the message should be sent. False otherwise.
 	 */
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost);
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost, DTNHost myHost);
 	
 	/**
 	 * Called after a message is sent to some other peer to ask if it should now
@@ -96,7 +119,7 @@ public interface RoutingDecisionEngine
 	 * @param otherHost Host who received the message
 	 * @return true if the message should be deleted. False otherwise.
 	 */
-	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost);
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost);
 	
 	/**
 	 * Called if an attempt was unsuccessfully made to transfer a message to a 

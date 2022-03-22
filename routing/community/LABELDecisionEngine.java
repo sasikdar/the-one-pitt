@@ -154,7 +154,7 @@ public class LABELDecisionEngine
 	 * LABEL Routing works such that we only send the message to hosts in the same
 	 * local community as the message's destination.
 	 */
-	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost)
+	public boolean shouldSendMessageToHost(Message m, DTNHost otherHost,DTNHost thisHost)
 	{
 		if(m.getTo() == otherHost) return true;
 		
@@ -197,5 +197,11 @@ public class LABELDecisionEngine
 	public Set<DTNHost> getLocalCommunity()
 	{
 		return this.community.getLocalCommunity();
+	}
+
+	@Override
+	public boolean shouldDeleteSentMessage(Message m, DTNHost otherHost, DTNHost thisHost) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 }
